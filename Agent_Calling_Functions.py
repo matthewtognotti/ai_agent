@@ -16,18 +16,26 @@ def get_weather(latitude: float, longitude: float) -> float:
     Returns:
         Current temperature in Celsius
     """
-    print("\n============================================================================")
-    print(f"LLM invoked Weather Function with args: \n\n{args}")
-    print("============================================================================\n")
+    try:
+        print("\n============================================================================")
+        print(f"LLM invoked Weather Function with args: \n\n{ {'latitude': latitude, 'longitude': longitude} }")
+        print("============================================================================\n")
 
-    response = requests.get(
-        f"https://api.open-meteo.com/v1/forecast?"
-        f"latitude={latitude}&longitude={longitude}&"
-        "current=temperature_2m,wind_speed_10m&"
-        "hourly=temperature_2m,relative_humidity_2m,wind_speed_10m"
-    )
-    data = response.json()
-    return data['current']['temperature_2m']
+        response = requests.get(
+            f"https://api.open-meteo.com/v1/forecast?"
+            f"latitude={latitude}&longitude={longitude}&"
+            "current=temperature_2m,wind_speed_10m&"
+            "hourly=temperature_2m,relative_humidity_2m,wind_speed_10m",
+            timeout=10
+        )
+        response.raise_for_status()
+        data = response.json()
+       
+        return data['current']['temperature_2m']
+        
+    except requests.exceptions.RequestException as e:
+        print(f"\nWeather API Error: {str(e)}")
+        raise
 
 def send_email(recipient_name: str, content: str) -> str:
     """Simulate sending an email.
@@ -118,43 +126,48 @@ input_messages = [
     {"role": "system", "content": "You are a helpful email and weather assistant. Always be enthusiastic."}
 ]
 
-while True:
-    print("\n")
-    user_input = input("User: ")
-    print("\n")
-    
-    # Append user message
-    input_messages.append({"role": "user", "content": user_input})
 
-    response_1 = llm_output(input_messages)
-
-    # Append LLM response
-    input_messages.append({"role": "system", "content": response_1.output_text})
-
-    # Print LLM response in CLI for user if response is not a function call
-    if response_1.output[0].type != "function_call":
-        print("LLM: " + response_1.output_text)
-    
-    used_tool = False
-    
-    for tool_call in response_1.output:
-        if tool_call.type != "function_call":
-            continue
+def main():
+    while True:
+        print("\n")
+        user_input = input("User: ")
+        print("\n")
         
-        used_tool = True
-        name = tool_call.name
-        args = json.loads(tool_call.arguments)
-              
-        result = call_function(name, args)
+        # Append user message
+        input_messages.append({"role": "user", "content": user_input})
+
+        response_1 = llm_output(input_messages)
+
+        # Append LLM response
+        input_messages.append({"role": "system", "content": response_1.output_text})
+
+        # Print LLM response in CLI for user if response is not a function call
+        if response_1.output[0].type != "function_call":
+            print("LLM: " + response_1.output_text)
         
-        input_messages.append(tool_call)
-        input_messages.append({
-            "type": "function_call_output",
-            "call_id": tool_call.call_id,
-            "output": str(result)
-        })
-    
-    if used_tool:
-        response_2 = llm_output(input_messages)
-        input_messages.append({"role": "system", "content": response_2.output_text})
-        print("LLM: " + response_2.output_text)
+        used_tool = False
+        
+        for tool_call in response_1.output:
+            if tool_call.type != "function_call":
+                continue
+            
+            used_tool = True
+            name = tool_call.name
+            args = json.loads(tool_call.arguments)
+                
+            result = call_function(name, args)
+            
+            input_messages.append(tool_call)
+            input_messages.append({
+                "type": "function_call_output",
+                "call_id": tool_call.call_id,
+                "output": str(result)
+            })
+        
+        if used_tool:
+            response_2 = llm_output(input_messages)
+            input_messages.append({"role": "system", "content": response_2.output_text})
+            print("LLM: " + response_2.output_text)
+
+if __name__ == "__main__":
+    main()
