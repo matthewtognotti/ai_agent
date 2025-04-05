@@ -2,8 +2,6 @@ from openai import OpenAI
 import json
 import requests
 
-# Following example from Open AI Documentation: https://platform.openai.com/docs/guides/function-calling?api-mode=responses
-
 client = OpenAI()
 
 def get_weather(latitude: float, longitude: float) -> float:
